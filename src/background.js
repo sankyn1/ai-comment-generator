@@ -51,7 +51,9 @@ async function generateWithGemini(prompt, apiKey, length, model = 'gemini-2.5-fl
     throw new Error('No Gemini API key found. Open the extension popup and save it first.');
   }
 
-  const maxTokens = length === 'short' ? 120 : 280;
+  // Generous limits — the prompt instructs length, not the token cap.
+  // Token cap is just a safety ceiling to prevent runaway output.
+  const maxTokens = length === 'short' ? 300 : 600;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -80,13 +82,20 @@ async function generateWithGemini(prompt, apiKey, length, model = 'gemini-2.5-fl
   }
 
   const data = await response.json();
+
+  // Check finish reason — if MAX_TOKENS the reply was cut; warn in console
+  const finishReason = data?.candidates?.[0]?.finishReason;
+  if (finishReason === 'MAX_TOKENS') {
+    console.warn('[AI Reply] Gemini hit token limit — consider raising maxOutputTokens further');
+  }
+
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!text) {
     throw new Error('Gemini did not return any reply text.');
   }
 
-  return text.trim();
+  return ensureComplete(text.trim(), length);
 }
 
 async function generateWithOllama(prompt, settings, length) {
@@ -97,6 +106,9 @@ async function generateWithOllama(prompt, settings, length) {
     throw new Error('No Ollama model selected. Open the extension popup and choose one.');
   }
 
+  // num_predict is the reply budget only — prompt tokens are separate in Ollama
+  const num_predict = length === 'short' ? 300 : 600;
+
   const response = await fetch(`${baseUrl}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -106,7 +118,8 @@ async function generateWithOllama(prompt, settings, length) {
       stream: false,
       options: {
         temperature: 0.9,
-        num_predict: length === 'short' ? 120 : 280
+        num_predict,
+        stop: []           // let the model decide when to stop naturally
       }
     })
   });
@@ -123,7 +136,30 @@ async function generateWithOllama(prompt, settings, length) {
     throw new Error('Ollama did not return any reply text.');
   }
 
-  return text.trim();
+  return ensureComplete(text.trim(), length);
+}
+
+/**
+ * If the reply was cut mid-sentence (no terminal punctuation at the end),
+ * trim back to the last complete sentence so it never reads as truncated.
+ */
+function ensureComplete(text, length) {
+  if (!text) return text;
+
+  // Already ends with sentence-ending punctuation — nothing to do
+  if (/[.!?'"]$/.test(text)) return text;
+
+  // Find the last sentence boundary
+  const sentenceEnd = /[.!?][^.!?]*$/;
+  const match = text.match(/^([\s\S]*[.!?])/);
+
+  if (match && match[1] && match[1].trim().length > 20) {
+    console.warn('[AI Reply] Reply was trimmed to last complete sentence (was cut mid-thought)');
+    return match[1].trim();
+  }
+
+  // If we can't find any sentence ending, return as-is — better than nothing
+  return text;
 }
 
 function normalizeBaseUrl(value) {
@@ -144,8 +180,8 @@ function buildPrompt(postContent, tone, length, intent) {
   };
 
   const lengthGuide = {
-    short:  `1–2 sentences. Tight and complete — end with a full stop, not mid-thought.`,
-    medium: `3–4 sentences. Developed but focused — one clear idea, fully expressed.`
+    short:  `1–2 sentences maximum. Every sentence must be complete. End with a period, exclamation mark, or question mark. Never stop mid-sentence.`,
+    medium: `3–4 sentences. Write every sentence in full. The last sentence must end with proper punctuation. Do not trail off or leave a thought unfinished.`
   };
 
   const openers = [
@@ -171,7 +207,8 @@ Rules:
 - Write like a real person, not a content strategist
 - No hashtags
 - No emojis unless the tone is casual or witty (max one if so)
-- Do not trail off — finish your thought completely before stopping
+- CRITICAL: Every sentence must be grammatically complete. The reply must end with . or ! or ?
+- CRITICAL: Do not stop writing until the final sentence is fully finished
 - Output only the reply itself, nothing else
 
 Post:
