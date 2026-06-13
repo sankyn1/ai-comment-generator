@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Comment Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 360px;
+      background: #0a0a0f;
+      color: #f0f0ff;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 13px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(14,165,233,0.1));
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 18px 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      box-shadow: 0 8px 20px rgba(99,102,241,0.3);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: rgba(255,255,255,0.42);
+      margin-top: 2px;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 20px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px #22c55e;
+    }
+
+    .status-dot.inactive {
+      background: #ef4444;
+      box-shadow: 0 0 6px #ef4444;
+    }
+
+    .status-text {
+      font-size: 11px;
+      color: rgba(255,255,255,0.42);
+    }
+
+    .content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.3);
+      margin-bottom: 8px;
+    }
+
+    .section-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .input,
+    .select {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: #f0f0ff;
+      font-size: 12px;
+      padding: 10px 12px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input:focus,
+    .select:focus {
+      border-color: rgba(99,102,241,0.5);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    }
+
+    .mono { font-family: 'DM Mono', monospace; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .field:last-child { margin-bottom: 0; }
+
+    .field-label {
+      font-size: 11px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    .field-help {
+      font-size: 11px;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.34);
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .toggle-visibility {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .inline-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .inline-row .select {
+      flex: 1;
+    }
+
+    .secondary-btn,
+    .save-btn {
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .secondary-btn {
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.78);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 0 12px;
+      font-size: 12px;
+      min-width: 84px;
+    }
+
+    .save-btn {
+      width: 100%;
+      padding: 11px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .save-btn:hover,
+    .secondary-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .feedback {
+      font-size: 11px;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    .feedback.success {
+      background: rgba(34, 197, 94, 0.1);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .feedback.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .feedback.hidden { display: none; }
+
+    .footer {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 10px;
+    }
+
+    a {
+      color: #7dd3fc;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">AI</div>
+    <div class="header-text">
+      <h1>AI Comment Generator</h1>
+      <p>Choose Gemini or local Ollama</p>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Checking configuration...</span>
+  </div>
+
+  <div class="content">
+    <div class="section-card">
+      <div class="section-label">Provider</div>
+      <div class="field">
+        <select id="providerSelect" class="select">
+          <option value="gemini">Google Gemini</option>
+          <option value="ollama">Local Ollama</option>
+        </select>
+      </div>
+      <p class="field-help" id="providerHint">Use your Gemini API key for cloud generation.</p>
+    </div>
+
+    <div class="section-card" id="geminiSection">
+      <div class="section-label">Gemini Settings</div>
+      <div class="field">
+        <label class="field-label" for="apiKeyInput">API Key</label>
+        <div class="input-wrapper">
+          <input id="apiKeyInput" class="input mono" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+          <button id="toggleVis" class="toggle-visibility" type="button">Show</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="geminiModelSelect">Model</label>
+        <select id="geminiModelSelect" class="select">
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+      </div>
+      <p class="field-help">Your key stays in Chrome storage and is only used for Gemini requests.</p>
+    </div>
+
+    <div class="section-card" id="ollamaSection" style="display:none;">
+      <div class="section-label">Ollama Settings</div>
+      <div class="field">
+        <label class="field-label" for="ollamaBaseUrl">Server URL</label>
+        <input id="ollamaBaseUrl" class="input mono" type="text" placeholder="http://localhost:11434" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="ollamaModelSelect">Model</label>
+        <div class="inline-row">
+          <select id="ollamaModelSelect" class="select">
+            <option value="">Choose a model</option>
+          </select>
+          <button id="refreshModelsBtn" class="secondary-btn" type="button">Refresh</button>
+        </div>
+      </div>
+      <p class="field-help" id="modelStatus">Refresh to discover models from your local Ollama server.</p>
+    </div>
+
+    <button class="save-btn" id="saveBtn" type="button">Save Settings</button>
+    <div id="feedback" class="feedback hidden"></div>
+
+    <div class="section-card">
+      <div class="section-label">How It Works</div>
+      <p class="field-help">
+        On LinkedIn and X, click the AI Reply button beside a post, choose tone and intent, then generate and insert a draft reply.
+      </p>
+    </div>
+
+    <div class="field-help">
+      Gemini key: <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>v1.1.0</span>
+    <span>Manual review before posting</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
