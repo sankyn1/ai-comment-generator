@@ -51,6 +51,8 @@ async function generateWithGemini(prompt, apiKey, length, model = 'gemini-2.5-fl
     throw new Error('No Gemini API key found. Open the extension popup and save it first.');
   }
 
+  const maxTokens = length === 'short' ? 120 : 280;
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -59,10 +61,10 @@ async function generateWithGemini(prompt, apiKey, length, model = 'gemini-2.5-fl
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.85,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1000
+          temperature: 0.9,
+          topK: 50,
+          topP: 0.92,
+          maxOutputTokens: maxTokens
         },
         safetySettings: [
           { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
@@ -103,8 +105,8 @@ async function generateWithOllama(prompt, settings, length) {
       prompt,
       stream: false,
       options: {
-        temperature: 0.85,
-        num_predict: length === 'short' ? 100 : 240
+        temperature: 0.9,
+        num_predict: length === 'short' ? 120 : 280
       }
     })
   });
@@ -129,72 +131,53 @@ function normalizeBaseUrl(value) {
 }
 
 function buildPrompt(postContent, tone, length, intent) {
-  const toneMap = {
-    professional: 'professional, thoughtful, and insightful',
-    casual: 'natural, friendly, and conversational',
-    witty: 'clever, sharp, and lightly humorous (never forced)'
+  const toneGuide = {
+    professional: `Write in a confident, clear, and thoughtful tone — like a knowledgeable colleague sharing their perspective in a professional setting. No corporate jargon.`,
+    casual:       `Write in a relaxed, friendly tone — like texting a smart friend. Contractions are fine. Feel free to be warm and a little personal.`,
+    witty:        `Write with a sharp, clever edge — light humor, a surprising angle, or a playful observation. Natural wit, not forced jokes.`
   };
 
-  const intentMap = {
-    reply: 'contribute a meaningful perspective or insight',
-    question: 'ask a specific and thought-provoking follow-up question',
-    appreciation: 'express genuine appreciation tied to a specific detail'
+  const intentGuide = {
+    reply:        `Share a genuine perspective, insight, or reaction that adds something to the conversation.`,
+    question:     `Ask one specific, curious follow-up question that shows you actually read and thought about the post.`,
+    appreciation: `Express appreciation for something specific in the post — not generic praise, but a real reaction to a particular idea or moment.`
   };
 
-  const lengthMap = {
-    short: '1-2 sentences',
-    medium: '2-4 sentences'
+  const lengthGuide = {
+    short:  `1–2 sentences. Tight and complete — end with a full stop, not mid-thought.`,
+    medium: `3–4 sentences. Developed but focused — one clear idea, fully expressed.`
   };
 
-  const variationStyles = [
-    'Focus on a practical takeaway',
-    'Offer a slightly different perspective if relevant',
-    'Highlight a subtle insight others might miss',
-    'Keep it reflective and thoughtful',
-    'Relate it briefly to a real-world scenario'
+  const openers = [
+    'lead with the most interesting or unexpected angle you can find in the post',
+    'skip the obvious reaction — find something more specific to react to',
+    'pick one concrete detail from the post and make your reply about that',
+    'start from a personal or practical angle that feels real',
+    'find the tension or nuance in the post and respond to that'
   ];
+  const opener = openers[Math.floor(Math.random() * openers.length)];
 
-  const randomStyle =
-    variationStyles[Math.floor(Math.random() * variationStyles.length)];
+  return `You are someone who reads social media posts carefully and leaves thoughtful, human replies.
 
-  return `
-You are a smart, authentic human engaging thoughtfully on social media.
+Tone: ${toneGuide[tone] || toneGuide.professional}
+Goal: ${intentGuide[intent] || intentGuide.reply}
+Length: ${lengthGuide[length] || lengthGuide.short}
 
-Your objective is to ${intentMap[intent] || intentMap.reply}.
+When writing, ${opener}.
 
-### Style Guidelines
-- Tone: ${toneMap[tone] || toneMap.professional}
-- Length: ${lengthMap[length] || lengthMap.short}
-- Write like a real person: natural, clear, and specific
+Rules:
+- Never open with "Great post", "Love this", "So true", "This is amazing", or any filler praise
+- Never summarise what the post already says
+- Write like a real person, not a content strategist
+- No hashtags
+- No emojis unless the tone is casual or witty (max one if so)
+- Do not trail off — finish your thought completely before stopping
+- Output only the reply itself, nothing else
 
-### How to Think Before Writing
-1. Identify the most meaningful, interesting, or unique idea in the post.
-2. Focus only on that idea and do not respond to everything.
-3. Add value by doing one of the following:
-   - Share a perspective
-   - Add insight
-   - Extend the idea
-   - Ask a thoughtful question if the intent allows
-
-### Additional Guidance
-- ${randomStyle}
-
-### Strict Rules
-- Do not start with generic phrases like "Great post" or "Nice"
-- Do not repeat or summarize the post
-- Do not add hashtags unless truly natural
-- Do not invent facts or assumptions
-- Do not sound robotic, promotional, or AI-generated
-- Avoid emojis unless tone is casual or witty, and even then use at most one
-
-### Output Rules
-- Return only the final reply
-- No quotes, no labels, no explanations
-- Ensure the reply is a complete thought and ends with appropriate punctuation. Do not cut off abruptly.
-
-### Post
+Post:
 """
 ${postContent}
 """
-`;
+
+Reply:`;
 }
