@@ -53,7 +53,7 @@ async function generateWithGemini(prompt, apiKey, length, model = 'gemini-2.5-fl
 
   // Generous limits — the prompt instructs length, not the token cap.
   // Token cap is just a safety ceiling to prevent runaway output.
-  const maxTokens = length === 'short' ? 300 : 600;
+  const maxTokens = length === 'short' ? 600 : 1000;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
